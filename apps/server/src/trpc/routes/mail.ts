@@ -14,6 +14,7 @@ import { getZeroAgent } from '../../lib/server-utils';
 import { env } from 'cloudflare:workers';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { arch } from 'os';
 
 const senderSchema = z.object({
   name: z.string().optional(),
@@ -55,9 +56,13 @@ export const mailRouter = router({
       ),
     )
     .query(async ({ ctx }) => {
+      console.log('🎯 TRPC mail.count endpoint called!');
       const { activeConnection } = ctx;
       const agent = await getZeroAgent(activeConnection.id);
-      return await agent.count();
+      console.log('🤖 Agent created, calling count()...');
+      const result = await agent.count();
+      console.log('📊 Count result received:', result?.length, 'labels');
+      return result;
     }),
   listThreads: activeDriverProcedure
     .input(

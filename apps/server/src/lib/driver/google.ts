@@ -185,22 +185,41 @@ export class GoogleMailManager implements MailManager {
         const userLabels = await this.gmail.users.labels.list({
           userId: 'me',
         });
-
         if (!userLabels.data.labels) {
           return [];
         }
-        return Promise.all(
+        const labelCounts = await Promise.all(
           userLabels.data.labels.map(async (label) => {
             const res = await this.gmail.users.labels.get({
               userId: 'me',
               id: label.id ?? undefined,
             });
+            
+            const totalCount = Number(res.data.messagesTotal) || 0;
+          
+            
             return {
               label: res.data.name ?? res.data.id ?? '',
-              count: Number(res.data.threadsUnread) ?? undefined,
+              count: totalCount,
             };
           }),
         );
+        
+        const archiveSearch = await this.gmail.users.messages.list({
+          userId: 'me',
+          q: 'in:archive',
+          maxResults: 1, 
+        });
+        
+        const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
+        console.log("Archive count from search:", archiveCount);
+        
+        labelCounts.push({
+          label: 'ARCHIVE',
+          count: archiveCount
+        });
+        
+        return labelCounts;
       },
       { email: this.config.auth?.email },
     );
@@ -1263,5 +1282,48 @@ export class GoogleMailManager implements MailManager {
     }
 
     return results;
+  }
+
+  // Debug function to understand Gmail label structure
+  public async debugLabels() {
+    return this.withErrorHandler(
+      'debugLabels',
+      async () => {
+        const userLabels = await this.gmail.users.labels.list({
+          userId: 'me',
+        });
+        
+        console.log('All Gmail labels:');
+        console.log(JSON.stringify(userLabels.data.labels, null, 2));
+        
+        if (!userLabels.data.labels) {
+          return [];
+        }
+        
+        const labelDetails = await Promise.all(
+          userLabels.data.labels.map(async (label) => {
+            const res = await this.gmail.users.labels.get({
+              userId: 'me',
+              id: label.id ?? undefined,
+            });
+            return {
+              id: label.id,
+              name: res.data.name,
+              type: res.data.type,
+              messagesTotal: res.data.messagesTotal,
+              threadsTotal: res.data.threadsTotal,
+              messagesUnread: res.data.messagesUnread,
+              threadsUnread: res.data.threadsUnread,
+            };
+          })
+        );
+        
+        console.log('Label details:');
+        console.log(JSON.stringify(labelDetails, null, 2));
+        
+        return labelDetails;
+      },
+      { email: this.config.auth?.email },
+    );
   }
 }
