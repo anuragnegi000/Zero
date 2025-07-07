@@ -212,7 +212,7 @@ export class GoogleMailManager implements MailManager {
         
         const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
         console.log("Archive count from search:", archiveCount);
-        
+        console.log('Archive count from search:', archiveCount);
         labelCounts.push({
           label: 'ARCHIVE',
           count: archiveCount
