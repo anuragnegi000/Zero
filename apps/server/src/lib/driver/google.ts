@@ -207,8 +207,7 @@ export class GoogleMailManager implements MailManager {
         
         const archiveSearch = await this.gmail.users.messages.list({
           userId: 'me',
-          q: 'in:archive',
-          maxResults: 1, 
+          q: 'in:archive'
         });
         
         const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
