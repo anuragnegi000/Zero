@@ -59,9 +59,7 @@ export const mailRouter = router({
       console.log('🎯 TRPC mail.count endpoint called!');
       const { activeConnection } = ctx;
       const agent = await getZeroAgent(activeConnection.id);
-      console.log('🤖 Agent created, calling count()...');
       const result = await agent.count();
-      console.log('📊 Count result received:', result?.length, 'labels');
       return result;
     }),
   listThreads: activeDriverProcedure
