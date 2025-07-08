@@ -644,14 +644,22 @@ export default class extends WorkerEntrypoint<typeof env> {
           console.log('[GOOGLE] invalid request', body);
           return c.json({}, { status: 200 });
         }
-        const instance = await env.MAIN_WORKFLOW.create({
-          params: {
+        try {
+          const instance = await env.MAIN_WORKFLOW.create({
+            params: {
+              providerId,
+              historyId: body.historyId,
+              subscriptionName: subHeader,
+            },
+          });
+          console.log('[GOOGLE] created instance', instance.id, instance.status);
+        } catch (error) {
+          console.error('Error creating instance', error, {
             providerId,
             historyId: body.historyId,
             subscriptionName: subHeader,
-          },
-        });
-        console.log('[GOOGLE] created instance', instance.id, instance.status);
+          });
+        }
         return c.json({ message: 'OK' }, { status: 200 });
       }
     });
