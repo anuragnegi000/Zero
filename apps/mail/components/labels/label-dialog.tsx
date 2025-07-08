@@ -26,7 +26,6 @@ import { m } from '@/paraglide/messages';
 
 interface LabelDialogProps {
   trigger?: React.ReactNode;
-  onSuccess?: () => void;
   editingLabel?: LabelType | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -35,7 +34,6 @@ interface LabelDialogProps {
 
 export function LabelDialog({
   trigger,
-  onSuccess,
   editingLabel,
   open,
   onOpenChange,
@@ -76,9 +74,13 @@ export function LabelDialog({
   }, [dialogOpen, editingLabel, form]);
 
   const handleSubmit = async (data: LabelType) => {
-    await onSubmit(data);
-    handleClose();
-    onSuccess?.();
+    try {
+      await onSubmit(data);
+      handleClose();
+    } catch (error) {
+      // Don't close dialog on error, let user retry
+      console.error('Error submitting label:', error);
+    }
   };
 
   const handleClose = () => {

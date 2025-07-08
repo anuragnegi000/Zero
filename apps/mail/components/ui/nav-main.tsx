@@ -106,7 +106,12 @@ export function NavMain({ items }: NavMainProps) {
     }
   }, [intercomToken]);
 
-  const { mutateAsync: createLabel } = useMutation(trpc.labels.create.mutationOptions());
+  const { mutateAsync: createLabel } = useMutation({
+    ...trpc.labels.create.mutationOptions(),
+    onSuccess: () => {
+      refetch();
+    },
+  });
 
   const { data, refetch } = useLabels();
 
@@ -291,7 +296,6 @@ export function NavMain({ items }: NavMainProps) {
                       </Button>
                     }
                     onSubmit={onSubmit}
-                    onSuccess={refetch}
                   />
                 ) : activeAccount?.providerId === 'microsoft' ? null : null}
               </div>

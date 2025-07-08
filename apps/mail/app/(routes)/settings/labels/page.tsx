@@ -44,8 +44,18 @@ export default function LabelsPage() {
   const [editingLabel, setEditingLabel] = useState<LabelType | null>(null);
 
   const trpc = useTRPC();
-  const { mutateAsync: createLabel } = useMutation(trpc.labels.create.mutationOptions());
-  const { mutateAsync: updateLabel } = useMutation(trpc.labels.update.mutationOptions());
+  const { mutateAsync: createLabel } = useMutation({
+    ...trpc.labels.create.mutationOptions(),
+    onSuccess: () => {
+      refetch();
+    },
+  });
+  const { mutateAsync: updateLabel } = useMutation({
+    ...trpc.labels.update.mutationOptions(),
+    onSuccess: () => {
+      refetch();
+    },
+  });
   const { mutateAsync: deleteLabel } = useMutation(trpc.labels.delete.mutationOptions());
 
   const handleSubmit = async (data: LabelType) => {
@@ -97,7 +107,6 @@ export default function LabelsPage() {
               if (!open) setEditingLabel(null);
             }}
             onSubmit={handleSubmit}
-            onSuccess={refetch}
           />
         }
       >
