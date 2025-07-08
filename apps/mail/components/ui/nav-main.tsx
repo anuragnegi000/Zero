@@ -312,15 +312,29 @@ function NavItem(item: NavItemProps & { href: string }) {
             <p className="relative bottom-[1px] mt-0.5 min-w-0 flex-1 truncate text-[13px]">
               {item.title}
             </p>
-            {stats &&
-              item.id?.toLowerCase() !== 'sent' &&
-              stats.some((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase()) && (
-                <Badge className="text-muted-foreground ml-auto shrink-0 rounded-full border-none bg-transparent">
-                  {stats
-                    .find((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase())
-                    ?.count?.toLocaleString() || '0'}
-                </Badge>
-              )}
+            {stats && (() => {
+              const idToLabelMap: Record<string, string> = {
+                'inbox': 'INBOX',
+                'drafts': 'DRAFT',
+                'sent': 'SENT',
+                'spam': 'SPAM',
+                'trash': 'TRASH',
+                'archive': 'ARCHIVE'
+              };
+              
+              const labelToMatch = idToLabelMap[item.id?.toLowerCase() || ''] || item.id?.toUpperCase();
+              const matchingStat = stats.find((stat) => stat.label?.toUpperCase() === labelToMatch);
+              
+              if (matchingStat && matchingStat.count && matchingStat.count > 0) {
+                return (
+                  <Badge className="text-muted-foreground ml-auto shrink-0 rounded-full border-none bg-transparent">
+                    {matchingStat.count.toLocaleString()}
+                  </Badge>
+                );
+              }
+              
+              return null;
+            })()}
           </Link>
         </SidebarMenuButton>
       </CollapsibleTrigger>
