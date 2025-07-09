@@ -188,6 +188,16 @@ export class GoogleMailManager implements MailManager {
         if (!userLabels.data.labels) {
           return [];
         }
+        
+        const idToLabelMap: Record<string, string> = {
+          'inbox': 'INBOX',
+          'drafts': 'DRAFT',
+          'sent': 'SENT',
+          'spam': 'SPAM',
+          'trash': 'TRASH',
+          'archive': 'ARCHIVE'
+        };
+        
         const labelCounts = await Promise.all(
           userLabels.data.labels.map(async (label) => {
             const res = await this.gmail.users.labels.get({
@@ -197,7 +207,6 @@ export class GoogleMailManager implements MailManager {
             
             const totalCount = Number(res.data.messagesTotal) || 0;
           
-            
             return {
               label: res.data.name ?? res.data.id ?? '',
               count: totalCount,
@@ -211,14 +220,33 @@ export class GoogleMailManager implements MailManager {
         });
         
         const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
-        console.log("Archive count from search:", archiveCount);
-        console.log('Archive count from search:', archiveCount);
         labelCounts.push({
           label: 'ARCHIVE',
           count: archiveCount
         });
         
-        return labelCounts;
+        const enhancedCounts: Array<{ label: string; count: number }> = [];
+        
+        labelCounts.forEach(stat => {
+          if (stat.count > 0) {
+            enhancedCounts.push(stat);
+          }
+        });
+        
+        labelCounts.forEach(stat => {
+          if (stat.label && stat.count > 0) {
+            Object.entries(idToLabelMap).forEach(([id, gmailLabel]) => {
+              if (stat.label.toUpperCase() === gmailLabel) {
+                enhancedCounts.push({
+                  label: id,
+                  count: stat.count
+                });
+              }
+            });
+          }
+        });
+        
+        return enhancedCounts;
       },
       { email: this.config.auth?.email },
     );

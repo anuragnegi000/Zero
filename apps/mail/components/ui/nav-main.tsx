@@ -64,26 +64,12 @@ export function NavMain({ items }: NavMainProps) {
   const statsMap = useMemo(() => {
     if (!stats) return new Map<string, number>();
     
-    const idToLabelMap: Record<string, string> = {
-      'inbox': 'INBOX',
-      'drafts': 'DRAFT',
-      'sent': 'SENT',
-      'spam': 'SPAM',
-      'trash': 'TRASH',
-      'archive': 'ARCHIVE'
-    };
-    
     const map = new Map<string, number>();
     
     stats.forEach(stat => {
       if (stat.label && stat.count && stat.count > 0) {
+        map.set(stat.label.toLowerCase(), stat.count);
         map.set(stat.label.toUpperCase(), stat.count);
-        
-        Object.entries(idToLabelMap).forEach(([id, label]) => {
-          if (stat.label && label === stat.label.toUpperCase()) {
-            map.set(id.toUpperCase(), stat.count!);
-          }
-        });
       }
     });
     
@@ -92,6 +78,11 @@ export function NavMain({ items }: NavMainProps) {
 
   const getItemCount = useCallback((itemId: string | undefined) => {
     if (!itemId || !statsMap.size) return 0;
+    
+    const lowerItemId = itemId.toLowerCase();
+    if (statsMap.has(lowerItemId)) {
+      return statsMap.get(lowerItemId) || 0;
+    }
     
     const upperItemId = itemId.toUpperCase();
     return statsMap.get(upperItemId) || 0;
