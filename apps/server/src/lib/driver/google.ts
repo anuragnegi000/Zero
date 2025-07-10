@@ -185,40 +185,22 @@ export class GoogleMailManager implements MailManager {
         const userLabels = await this.gmail.users.labels.list({
           userId: 'me',
         });
+
         if (!userLabels.data.labels) {
           return [];
         }
-        const labelCounts = await Promise.all(
+        return Promise.all(
           userLabels.data.labels.map(async (label) => {
             const res = await this.gmail.users.labels.get({
               userId: 'me',
               id: label.id ?? undefined,
             });
-            
-            const totalCount = Number(res.data.messagesTotal) || 0;
-          
-            
             return {
               label: res.data.name ?? res.data.id ?? '',
-              count: totalCount,
+              count: Number(res.data.threadsUnread) ?? undefined,
             };
           }),
         );
-        
-        const archiveSearch = await this.gmail.users.messages.list({
-          userId: 'me',
-          q: 'in:archive'
-        });
-        
-        const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
-        console.log("Archive count from search:", archiveCount);
-        console.log('Archive count from search:', archiveCount);
-        labelCounts.push({
-          label: 'ARCHIVE',
-          count: archiveCount
-        });
-        
-        return labelCounts;
       },
       { email: this.config.auth?.email },
     );
@@ -407,7 +389,7 @@ export class GoogleMailManager implements MailManager {
         return {
           labels: Array.from(labels).map((id) => ({ id, name: id })),
           messages,
-          latest: messages.findLast((e) => !e.isDraft),
+          latest: messages.findLast((e) => e.isDraft !== true),
           hasUnread,
           totalReplies: messages.filter((e) => !e.isDraft).length,
         };
@@ -1142,12 +1124,12 @@ export class GoogleMailManager implements MailManager {
         .filter(Boolean) || [];
 
     const subject = headers.find((h) => h.name === 'Subject')?.value;
-   
+
     const cc =
       draft.message.payload?.headers?.find((h) => h.name === 'Cc')?.value?.split(',') || [];
     const bcc =
       draft.message.payload?.headers?.find((h) => h.name === 'Bcc')?.value?.split(',') || [];
-      
+
     const payload = draft.message.payload;
     let content = '';
     let attachments: {
@@ -1168,13 +1150,16 @@ export class GoogleMailManager implements MailManager {
 
       //  Get attachments
       const attachmentParts = payload.parts.filter(
-        (part) => !!part.filename && !!part.body?.attachmentId
+        (part) => !!part.filename && !!part.body?.attachmentId,
       );
 
       attachments = await Promise.all(
         attachmentParts.map(async (part) => {
           try {
-            const attachmentData = await this.getAttachment(draft.message!.id!, part.body!.attachmentId!);
+            const attachmentData = await this.getAttachment(
+              draft.message!.id!,
+              part.body!.attachmentId!,
+            );
             return {
               filename: part.filename || '',
               mimeType: part.mimeType || '',
@@ -1190,7 +1175,7 @@ export class GoogleMailManager implements MailManager {
           } catch (e) {
             return null;
           }
-        })
+        }),
       ).then((a) => a.filter((a): a is NonNullable<typeof a> => a !== null));
     } else if (payload?.body?.data) {
       content = fromBinary(payload.body.data);
@@ -1281,48 +1266,5 @@ export class GoogleMailManager implements MailManager {
     }
 
     return results;
-  }
-
-  // Debug function to understand Gmail label structure
-  public async debugLabels() {
-    return this.withErrorHandler(
-      'debugLabels',
-      async () => {
-        const userLabels = await this.gmail.users.labels.list({
-          userId: 'me',
-        });
-        
-        console.log('All Gmail labels:');
-        console.log(JSON.stringify(userLabels.data.labels, null, 2));
-        
-        if (!userLabels.data.labels) {
-          return [];
-        }
-        
-        const labelDetails = await Promise.all(
-          userLabels.data.labels.map(async (label) => {
-            const res = await this.gmail.users.labels.get({
-              userId: 'me',
-              id: label.id ?? undefined,
-            });
-            return {
-              id: label.id,
-              name: res.data.name,
-              type: res.data.type,
-              messagesTotal: res.data.messagesTotal,
-              threadsTotal: res.data.threadsTotal,
-              messagesUnread: res.data.messagesUnread,
-              threadsUnread: res.data.threadsUnread,
-            };
-          })
-        );
-        
-        console.log('Label details:');
-        console.log(JSON.stringify(labelDetails, null, 2));
-        
-        return labelDetails;
-      },
-      { email: this.config.auth?.email },
-    );
   }
 }

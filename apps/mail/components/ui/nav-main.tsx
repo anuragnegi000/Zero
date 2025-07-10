@@ -16,7 +16,7 @@ import { useLabels } from '@/hooks/use-labels';
 import { Badge } from '@/components/ui/badge';
 import { useStats } from '@/hooks/use-stats';
 import SidebarLabels from './sidebar-labels';
-import { useCallback, useRef, useMemo } from 'react';
+import { useCallback, useRef } from 'react';
 import { BASE_URL } from '@/lib/constants';
 import { useQueryState } from 'nuqs';
 import { Plus } from 'lucide-react';
@@ -61,42 +61,6 @@ export function NavMain({ items }: NavMainProps) {
   const trpc = useTRPC();
   const { data: intercomToken } = useQuery(trpc.user.getIntercomToken.queryOptions());
 
-  const statsMap = useMemo(() => {
-    if (!stats) return new Map<string, number>();
-    
-    const idToLabelMap: Record<string, string> = {
-      'inbox': 'INBOX',
-      'drafts': 'DRAFT',
-      'sent': 'SENT',
-      'spam': 'SPAM',
-      'trash': 'TRASH',
-      'archive': 'ARCHIVE'
-    };
-    
-    const map = new Map<string, number>();
-    
-    stats.forEach(stat => {
-      if (stat.label && stat.count && stat.count > 0) {
-        map.set(stat.label.toUpperCase(), stat.count);
-        
-        Object.entries(idToLabelMap).forEach(([id, label]) => {
-          if (stat.label && label === stat.label.toUpperCase()) {
-            map.set(id.toUpperCase(), stat.count!);
-          }
-        });
-      }
-    });
-    
-    return map;
-  }, [stats]);
-
-  const getItemCount = useCallback((itemId: string | undefined) => {
-    if (!itemId || !statsMap.size) return 0;
-    
-    const upperItemId = itemId.toUpperCase();
-    return statsMap.get(upperItemId) || 0;
-  }, [statsMap]);
-
   React.useEffect(() => {
     if (intercomToken) {
       Intercom({
@@ -106,14 +70,9 @@ export function NavMain({ items }: NavMainProps) {
     }
   }, [intercomToken]);
 
-  const { mutateAsync: createLabel } = useMutation({
-    ...trpc.labels.create.mutationOptions(),
-    onSuccess: () => {
-      refetch();
-    },
-  });
+  const { mutateAsync: createLabel } = useMutation(trpc.labels.create.mutationOptions());
 
-  const { data, refetch } = useLabels();
+  const { data: userLabels, refetch } = useLabels();
 
   const { state } = useSidebar();
 
@@ -214,11 +173,19 @@ export function NavMain({ items }: NavMainProps) {
   );
 
   const onSubmit = async (data: LabelType) => {
-    toast.promise(createLabel(data), {
-      loading: 'Creating label...',
-      success: 'Label created successfully',
-      error: 'Failed to create label',
-    });
+    const toastId = toast.loading('Creating label...');
+    
+    try {
+      await createLabel(data);
+      
+      await refetch();
+      
+      toast.success('Label created successfully', { id: toastId });
+    } catch (error) {
+      console.error('Failed to create label:', error);
+      toast.error('Failed to create label', { id: toastId });
+      throw error; 
+    }
   };
 
   return (
@@ -270,7 +237,6 @@ export function NavMain({ items }: NavMainProps) {
                     href={getHref(item)}
                     target={item.target}
                     title={item.title}
-                    getItemCount={getItemCount}
                   />
                 ))}
               </div>
@@ -301,7 +267,7 @@ export function NavMain({ items }: NavMainProps) {
               </div>
 
               {activeAccount ? (
-                <SidebarLabels data={data ?? []} activeAccount={activeAccount} stats={stats} />
+                <SidebarLabels data={userLabels ?? []} activeAccount={activeAccount} stats={stats} />
               ) : null}
             </SidebarMenuItem>
           </Collapsible>
@@ -311,7 +277,7 @@ export function NavMain({ items }: NavMainProps) {
   );
 }
 
-function NavItem(item: NavItemProps & { href: string; getItemCount?: (itemId: string | undefined) => number }) {
+function NavItem(item: NavItemProps & { href: string }) {
   const iconRef = useRef<IconRefType>(null);
   const { data: stats } = useStats();
 
@@ -353,14 +319,15 @@ function NavItem(item: NavItemProps & { href: string; getItemCount?: (itemId: st
             <p className="relative bottom-[1px] mt-0.5 min-w-0 flex-1 truncate text-[13px]">
               {item.title}
             </p>
-            {item.getItemCount && (() => {
-              const count = item.getItemCount(item.id);
-              return count > 0 ? (
+            {stats &&
+              item.id?.toLowerCase() !== 'sent' &&
+              stats.some((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase()) && (
                 <Badge className="text-muted-foreground ml-auto shrink-0 rounded-full border-none bg-transparent">
-                  {count.toLocaleString()}
+                  {stats
+                    .find((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase())
+                    ?.count?.toLocaleString() || '0'}
                 </Badge>
-              ) : null;
-            })()}
+              )}
           </Link>
         </SidebarMenuButton>
       </CollapsibleTrigger>
