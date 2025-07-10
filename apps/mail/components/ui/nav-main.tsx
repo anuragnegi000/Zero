@@ -72,7 +72,9 @@ export function NavMain({ items }: NavMainProps) {
 
   const { mutateAsync: createLabel } = useMutation(trpc.labels.create.mutationOptions());
 
-  const { data: userLabels, refetch } = useLabels();
+
+  const { userLabels, refetch } = useLabels();
+
 
   const { state } = useSidebar();
 
@@ -266,9 +268,8 @@ export function NavMain({ items }: NavMainProps) {
                 ) : activeAccount?.providerId === 'microsoft' ? null : null}
               </div>
 
-              {activeAccount ? (
-                <SidebarLabels data={userLabels ?? []} activeAccount={activeAccount} stats={stats} />
-              ) : null}
+              {activeAccount ? <SidebarLabels data={userLabels ?? []} /> : null}
+
             </SidebarMenuItem>
           </Collapsible>
         )}
