@@ -1325,8 +1325,6 @@ export class GoogleMailManager implements MailManager {
           userId: 'me',
         });
         
-        console.log('All Gmail labels:');
-        console.log(JSON.stringify(userLabels.data.labels, null, 2));
         
         if (!userLabels.data.labels) {
           return [];
@@ -1349,9 +1347,7 @@ export class GoogleMailManager implements MailManager {
             };
           })
         );
-        
-        console.log('Label details:');
-        console.log(JSON.stringify(labelDetails, null, 2));
+      
         
         return labelDetails;
       },
