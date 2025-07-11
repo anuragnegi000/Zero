@@ -226,7 +226,7 @@ export class GoogleMailManager implements MailManager {
         try {
           const archiveSearch = await this.gmail.users.messages.list({
             userId: 'me',
-            q: 'in:archive'
+            q: '-in:inbox -in:trash -in:spam'
           });
           
           const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
