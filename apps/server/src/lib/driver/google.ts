@@ -189,6 +189,7 @@ export class GoogleMailManager implements MailManager {
           return [];
         }
         
+        // ID mapping for client-side navigation consistency
         const idToLabelMap: Record<string, string> = {
           'inbox': 'INBOX',
           'drafts': 'DRAFT',
@@ -198,47 +199,61 @@ export class GoogleMailManager implements MailManager {
           'archive': 'ARCHIVE'
         };
         
+        // Use concurrent label fetching (from staging)
         const labelCounts = await Promise.all(
           userLabels.data.labels.map(async (label) => {
-            const res = await this.gmail.users.labels.get({
-              userId: 'me',
-              id: label.id ?? undefined,
-            });
-            
-            const totalCount = Number(res.data.messagesTotal) || 0;
-          
-            return {
-              label: res.data.name ?? res.data.id ?? '',
-
-              count: totalCount,
-
-            };
-          }),
+            try {
+              const res = await this.gmail.users.labels.get({
+                userId: 'me',
+                id: label.id ?? undefined,
+              });
+              
+              return {
+                label: res.data.name ?? res.data.id ?? '',
+                count: Number(res.data.messagesTotal) || 0,
+              };
+            } catch (error) {
+              console.error('Failed to fetch label:', label.id, error);
+              return {
+                label: label.name ?? label.id ?? '',
+                count: 0,
+              };
+            }
+          })
         );
         
-        const archiveSearch = await this.gmail.users.messages.list({
-          userId: 'me',
-          q: 'in:archive'
-        });
+        // Add archive count manually (as it's not a standard label)
+        try {
+          const archiveSearch = await this.gmail.users.messages.list({
+            userId: 'me',
+            q: 'in:archive'
+          });
+          
+          const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
+          labelCounts.push({
+            label: 'ARCHIVE',
+            count: archiveCount
+          });
+        } catch (error) {
+          console.error('Failed to fetch archive count:', error);
+        }
         
-        const archiveCount = archiveSearch.data.resultSizeEstimate || 0;
-        labelCounts.push({
-          label: 'ARCHIVE',
-          count: archiveCount
-        });
-        
+        // Create enhanced counts with both original labels and ID mappings
         const enhancedCounts: Array<{ label: string; count: number }> = [];
         
-        labelCounts.forEach(stat => {
+        // Add original label counts
+        labelCounts.forEach((stat: { label: string; count: number }) => {
           if (stat.count > 0) {
             enhancedCounts.push(stat);
           }
         });
         
-        labelCounts.forEach(stat => {
+        // Add ID mappings for navigation items
+        labelCounts.forEach((stat: { label: string; count: number }) => {
           if (stat.label && stat.count > 0) {
             Object.entries(idToLabelMap).forEach(([id, gmailLabel]) => {
               if (stat.label.toUpperCase() === gmailLabel) {
+                // Add the ID mapping (e.g., 'inbox' for 'INBOX')
                 enhancedCounts.push({
                   label: id,
                   count: stat.count

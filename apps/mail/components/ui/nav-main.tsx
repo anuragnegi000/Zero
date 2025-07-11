@@ -60,6 +60,7 @@ export function NavMain({ items }: NavMainProps) {
   
   const trpc = useTRPC();
   const { data: intercomToken } = useQuery(trpc.user.getIntercomToken.queryOptions());
+  const { data: stats } = useStats();
 
   const statsMap = useMemo(() => {
     if (!stats) return new Map<string, number>();
@@ -298,7 +299,6 @@ export function NavMain({ items }: NavMainProps) {
 
 function NavItem(item: NavItemProps & { href: string; getItemCount?: (itemId: string | undefined) => number }) {
   const iconRef = useRef<IconRefType>(null);
-  const { data: stats } = useStats();
 
   const { state, setOpenMobile } = useSidebar();
 
