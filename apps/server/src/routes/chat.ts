@@ -47,6 +47,8 @@ import { McpAgent } from 'agents/mcp';
 
 import { createDb } from '../db';
 import { z } from 'zod';
+import { Effect } from 'effect';
+import { withGmailRetry } from '../lib/gmail-rate-limit';
 
 const decoder = new TextDecoder();
 
@@ -881,7 +883,7 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
     this.syncThreadsInProgress.set(threadId, true);
 
     try {
-      const threadData = await this.driver.get(threadId);
+      const threadData = await this.getWithRetry(threadId);
       const latest = threadData.latest;
 
       if (latest) {
@@ -920,10 +922,12 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
         this.syncThreadsInProgress.delete(threadId);
         return { success: true, threadId, threadData };
       } else {
+        this.syncThreadsInProgress.delete(threadId);
         console.log(`Skipping thread ${threadId} - no latest message`);
         return { success: false, threadId, reason: 'No latest message' };
       }
     } catch (error) {
+      this.syncThreadsInProgress.delete(threadId);
       console.error(`Failed to sync thread ${threadId}:`, error);
       throw error;
     }
@@ -931,6 +935,26 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
 
   getThreadKey(threadId: string) {
     return `${this.name}/${threadId}.json`;
+  }
+
+  private async listWithRetry(params: Parameters<MailManager['list']>[0]) {
+    if (!this.driver) throw new Error('No driver available');
+
+    return Effect.runPromise(
+      withGmailRetry(
+        Effect.tryPromise(() => this.driver!.list(params))
+      ),
+    );
+  }
+
+  private async getWithRetry(threadId: string): Promise<IGetThreadResponse> {
+    if (!this.driver) throw new Error('No driver available');
+
+    return Effect.runPromise(
+      withGmailRetry(
+        Effect.tryPromise(() => this.driver!.get(threadId))
+      ),
+    );
   }
 
   async syncThreads(folder: string) {
@@ -961,15 +985,20 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
       while (hasMore) {
         _pageCount++;
 
-        const result = await this.driver.list({
+        const result = await this.listWithRetry({
           folder,
           maxResults: maxCount,
           pageToken: pageToken || undefined,
         });
 
+        // Need delay to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
         for (const thread of result.threads) {
           try {
             await this.syncThread(thread.id);
+            // Need delay to avoid rate limiting
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           } catch (error) {
             console.error(`Failed to sync thread ${thread.id}:`, error);
           }
